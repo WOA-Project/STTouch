@@ -23,19 +23,22 @@
 
 //#define FTM3_CHIP
 
-#ifdef FTM3_CHIP
+/*#ifdef FTM3_CHIP
 #define IER_ADDR			0x00, 0x1C
 #else
 #define IER_ADDR			0x00, 0x2C
-#endif
+#endif*/
+
+#define IER_ADDR_FTM3			0x00, 0x1C
+#define IER_ADDR_FTM4			0x00, 0x2C
 
 #define IER_ENABLE			0x41
 
-#ifdef FTM3_CHIP
+/*#ifdef FTM3_CHIP
 #define FIFO_DEPTH			32
-#else
+#else*/
 #define FIFO_DEPTH			64
-#endif
+//#endif
 
 #define FIFO_CMD_READONE	0x85
 #define FIFO_CMD_READALL	0x86

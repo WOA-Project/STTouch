@@ -36,15 +36,27 @@ FtsEnableInterrupts(IN SPB_CONTEXT* SpbContext)
 		TRACE_REPORTING,
 		"FtsEnableInterrupts - Entry");
 
-	BYTE Command[3] = {IER_ADDR, IER_ENABLE};
+	BYTE CommandFTM3[3] = { IER_ADDR_FTM3, IER_ENABLE };
+	BYTE CommandFTM4[3] = { IER_ADDR_FTM4, IER_ENABLE };
 
-	status = SpbWriteDataSynchronously(SpbContext, FTS_CMD_HW_REG_W, Command, sizeof(Command));
+	status = SpbWriteDataSynchronously(SpbContext, FTS_CMD_HW_REG_W, CommandFTM3, sizeof(CommandFTM3));
 	if (!NT_SUCCESS(status))
 	{
 		Trace(
 			TRACE_LEVEL_ERROR,
 			TRACE_INTERRUPT,
-			"FtsEnableInterrupts - Error enabling interrupts - 0x%08lX",
+			"FtsEnableInterrupts - Error enabling interrupts (FTM3) - 0x%08lX",
+			status);
+		goto exit;
+	}
+
+	status = SpbWriteDataSynchronously(SpbContext, FTS_CMD_HW_REG_W, CommandFTM4, sizeof(CommandFTM4));
+	if (!NT_SUCCESS(status))
+	{
+		Trace(
+			TRACE_LEVEL_ERROR,
+			TRACE_INTERRUPT,
+			"FtsEnableInterrupts - Error enabling interrupts (FTM4) - 0x%08lX",
 			status);
 		goto exit;
 	}
