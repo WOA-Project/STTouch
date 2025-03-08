@@ -31,15 +31,6 @@
 
 #define IER_ENABLE			0x41
 
-
-#ifdef FTM3_CHIP
-#define SYSTEM_RESET_ADDRESS	0x00, 0x23
-#define SYSTEM_RESET_VALUE	0x01
-#else
-#define SYSTEM_RESET_ADDRESS	0x00, 0x28
-#define SYSTEM_RESET_VALUE	0x80
-#endif
-
 #ifdef FTM3_CHIP
 #define FIFO_DEPTH			32
 #else

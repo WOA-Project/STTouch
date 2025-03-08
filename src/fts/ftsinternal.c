@@ -240,7 +240,6 @@ FtsConfigureInterruptEnable(
 )
 {
 	NTSTATUS status;
-	LARGE_INTEGER delay;
 
 	Trace(
 		TRACE_LEVEL_ERROR,
@@ -249,69 +248,9 @@ FtsConfigureInterruptEnable(
 
 	ControllerContext->MaxFingers = 8;
 
-	BYTE Command[3] = {SYSTEM_RESET_ADDRESS, SYSTEM_RESET_VALUE};
-	status = SpbWriteDataSynchronously(SpbContext, FTS_CMD_HW_REG_W, Command, sizeof(Command));
-	if (!NT_SUCCESS(status))
-	{
-		Trace(
-			TRACE_LEVEL_ERROR,
-			TRACE_INTERRUPT,
-			"FtsConfigureInterruptEnable - Error resetting controller - 0x%08lX",
-			status);
-
-		goto exit;
-	}
-
-	delay.QuadPart = -10 * 1000;
-	delay.QuadPart *= 200;
-	status = KeDelayExecutionThread(KernelMode, FALSE, &delay); // 200ms
-	if (!NT_SUCCESS(status))
-	{
-		Trace(
-			TRACE_LEVEL_ERROR,
-			TRACE_INTERRUPT,
-			"FtsConfigureInterruptEnable - Error delaying controller reset - 0x%08lX",
-			status);
-		goto exit;
-	}
-
-	BYTE EventDataBuffer[FIFO_EVENT_SIZE] = {0};
-	status = SpbReadDataSynchronously(SpbContext, FIFO_CMD_READONE, EventDataBuffer, sizeof(EventDataBuffer));
-	if (!NT_SUCCESS(status))
-	{
-		Trace(
-			TRACE_LEVEL_ERROR,
-			TRACE_INTERRUPT,
-			"FtsConfigureInterruptEnable - Error reading event buffer - 0x%08lX",
-			status);
-		goto exit;
-	}
-
-	status = KeDelayExecutionThread(KernelMode, FALSE, &delay); // 200ms
-	if (!NT_SUCCESS(status))
-	{
-		Trace(
-			TRACE_LEVEL_ERROR,
-			TRACE_INTERRUPT,
-			"FtsConfigureInterruptEnable - Error delaying controller reset - 0x%08lX",
-			status);
-		goto exit;
-	}
-
-	status = SpbReadDataSynchronously(SpbContext, FIFO_CMD_READONE, EventDataBuffer, sizeof(EventDataBuffer));
-	if (!NT_SUCCESS(status))
-	{
-		Trace(
-			TRACE_LEVEL_ERROR,
-			TRACE_INTERRUPT,
-			"FtsConfigureInterruptEnable - Error reading event buffer - 0x%08lX",
-			status);
-		goto exit;
-	}
-
-	// active scan on
-	// cmd_scanmode[1] = 0x00; // active scan
-	// cmd_scanmode[2] = 0x01; // on
+	// We do not need to issue a hardware reset
+	// Because we assume the reset GPIO Has been used instead
+	// To reset the chip
 
 	status = FtsEnableInterrupts(SpbContext);
 	if (!NT_SUCCESS(status))
@@ -324,9 +263,7 @@ FtsConfigureInterruptEnable(
 		goto exit;
 	}
 
-	Command[0] = 0x00;
-	Command[1] = 0x00;
-	Command[2] = 0x00;
+	BYTE Command[3] = { 0x00, 0x00, 0x00 };
 
 	status = SpbWriteDataSynchronously(SpbContext, FTS_CMD_MS_MT_SENSE_ON, Command, sizeof(Command));
 	if (!NT_SUCCESS(status))
@@ -335,18 +272,6 @@ FtsConfigureInterruptEnable(
 			TRACE_LEVEL_ERROR,
 			TRACE_INTERRUPT,
 			"FtsConfigureInterruptEnable - Error enabling sense - 0x%08lX",
-			status);
-		goto exit;
-	}
-
-	// drain event
-	status = SpbReadDataSynchronously(SpbContext, FIFO_CMD_READALL, EventDataBuffer, sizeof(EventDataBuffer));
-	if (!NT_SUCCESS(status))
-	{
-		Trace(
-			TRACE_LEVEL_ERROR,
-			TRACE_INTERRUPT,
-			"FtsConfigureInterruptEnable - Error draining event buffer - 0x%08lX",
 			status);
 		goto exit;
 	}
