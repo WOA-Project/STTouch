@@ -135,6 +135,8 @@ typedef struct _FTS_CONTROLLER_CONTEXT
 	FTS_CONFIGURATION Config;
 
 	BYTE MaxFingers;
+
+	DETECTED_OBJECTS DetectedObjects;
 } FTS_CONTROLLER_CONTEXT;
 
 #define DEVICE_CONTROL_SLEEP_MODE_OPERATING  0
@@ -216,3 +218,6 @@ FtsSetReportingFlags(
 	IN UCHAR NewMode,
 	OUT UCHAR* OldMode
 );
+
+NTSTATUS
+FtsEnableInterrupts(IN SPB_CONTEXT* SpbContext);

@@ -21,225 +21,31 @@
 #include <Cross Platform Shim\compat.h>
 #include <spb.h>
 #include <report.h>
+#include <fts\ftsregs.h>
+#include <fts\ftsevents.h>
 #include <fts\ftsinternal.h>
 #include <ftsinternal.tmh>
 
-BYTE cmd_sense_on[3] = { 0x00, 0x00, 0x00 };
-BYTE cmd_enable_int[3] = { 0x00, 0x2c, 0x41 };
-BYTE cmd_system_reset[3] = { 0x00, 0x28, 0x80 };
-
-BYTE EventDataBuffer[0x256];
-
-#define EVT_ID_CONTROL_READY           0x10
-#define EVT_ID_NO_EVENT                0x00
-#define EVT_ID_ENTER_POINT             0x03
-#define EVT_ID_LEAVE_POINT             0x04
-#define EVT_ID_MOTION_POINT            0x05
-
 NTSTATUS
-FtsGetObjectStatusFromController(
-	IN VOID* ControllerContext,
-	IN SPB_CONTEXT* SpbContext,
-	IN DETECTED_OBJECTS* Data
-)
-/*++
-
-Routine Description:
-
-	This routine reads raw touch messages from hardware. If there is
-	no touch data available (if a non-touch interrupt fired), the
-	function will not return success and no touch data was transferred.
-
-Arguments:
-
-	ControllerContext - Touch controller context
-	SpbContext - A pointer to the current i2c context
-	Data - A pointer to any returned F11 touch data
-
-Return Value:
-
-	NTSTATUS, where only success indicates data was returned
-
---*/
+FtsEnableInterrupts(IN SPB_CONTEXT* SpbContext)
 {
 	NTSTATUS status;
-	FTS_CONTROLLER_CONTEXT* controller;
 
 	Trace(
 		TRACE_LEVEL_ERROR,
 		TRACE_REPORTING,
-		"FtsGetObjectStatusFromController - Entry");
+		"FtsEnableInterrupts - Entry");
 
-	int i, x, y;
-	controller = (FTS_CONTROLLER_CONTEXT*)ControllerContext;
+	BYTE Command[3] = {IER_ADDR, IER_ENABLE};
 
-	if (controller->MaxFingers == 0)
-	{
-		status = STATUS_SUCCESS;
-		goto exit;
-	}
-
-	// Get all event data
-	status = SpbReadDataSynchronously(SpbContext, 0x86, EventDataBuffer, 16);
+	status = SpbWriteDataSynchronously(SpbContext, FTS_CMD_HW_REG_W, Command, sizeof(Command));
 	if (!NT_SUCCESS(status))
 	{
 		Trace(
 			TRACE_LEVEL_ERROR,
 			TRACE_INTERRUPT,
-			"FtsGetObjectStatusFromController - Error reading event buffer - 0x%08lX",
+			"FtsEnableInterrupts - Error enabling interrupts - 0x%08lX",
 			status);
-		goto exit;
-	}
-
-	UINT8 FingerCount = (EventDataBuffer[2] & 0xF0) >> 4;
-
-	if (FingerCount >= 0 && FingerCount <= 8)
-	{
-		status = SpbReadDataSynchronously(SpbContext, 0x86, EventDataBuffer + 16, 16 * FingerCount);
-		if (!NT_SUCCESS(status))
-		{
-			Trace(
-				TRACE_LEVEL_ERROR,
-				TRACE_INTERRUPT,
-				"FtsGetObjectStatusFromController - Error reading event buffer - 0x%08lX",
-				status);
-			goto exit;
-		}
-
-		// We only do 8 fingers max here
-		if (FingerCount > 8)
-		{
-			FingerCount = 8;
-		}
-	}
-
-	BYTE ObjectTypeAndStatus = 0;
-	BYTE X_MSB = 0;
-	BYTE X_LSB = 0;
-	BYTE Y_MSB = 0;
-	BYTE Y_LSB = 0;
-
-	Trace(
-		TRACE_LEVEL_INFORMATION,
-		TRACE_REPORTING,
-		"FtsGetObjectStatusFromController - FingerCount = %d",
-		FingerCount);
-
-	for (i = 0; i < FingerCount; i++)
-	{
-		if (EventDataBuffer[i * 16 + 1] == 0x28)
-		{
-			continue;
-		}
-
-		int touchId = (EventDataBuffer[i * 16 + 2] & 0x0F);
-
-		if (touchId >= MAX_TOUCHES || touchId < 0)
-		{
-			Trace(
-				TRACE_LEVEL_ERROR,
-				TRACE_REPORTING,
-				"FtsGetObjectStatusFromController - Invalid touch id %d",
-				touchId);
-			continue;
-		}
-
-		X_MSB = EventDataBuffer[i * 16 + 3];
-		X_LSB = (EventDataBuffer[i * 16 + 5] & 0xF0) >> 4;
-
-		Y_MSB = EventDataBuffer[i * 16 + 4];
-		Y_LSB = EventDataBuffer[i * 16 + 5] & 0x0F;
-
-		ObjectTypeAndStatus = EventDataBuffer[i * 16 + 1];
-
-		x = (X_MSB << 4) | X_LSB;
-		y = (Y_MSB << 4) | Y_LSB;
-
-		Trace(
-			TRACE_LEVEL_INFORMATION,
-			TRACE_REPORTING,
-			"FtsGetObjectStatusFromController - Finger %d: X = %d, Y = %d, Type = %d",
-			touchId,
-			x,
-			y,
-			ObjectTypeAndStatus);
-
-		switch (ObjectTypeAndStatus)
-		{
-		case EVT_ID_ENTER_POINT:
-		case EVT_ID_MOTION_POINT:
-			Data->States[touchId] = OBJECT_STATE_FINGER_PRESENT_WITH_ACCURATE_POS;
-			break;
-		case EVT_ID_LEAVE_POINT:
-			Data->States[touchId] = OBJECT_STATE_NOT_PRESENT;
-			break;
-		default:
-			Data->States[touchId] = OBJECT_STATE_NOT_PRESENT;
-			break;
-		}
-
-		Data->Positions[touchId].X = x;
-		Data->Positions[touchId].Y = y;
-	}
-
-exit:
-	Trace(
-		TRACE_LEVEL_ERROR,
-		TRACE_REPORTING,
-		"FtsGetObjectStatusFromController - Exit");
-
-	return status;
-}
-
-NTSTATUS
-TchServiceObjectInterrupts(
-	IN FTS_CONTROLLER_CONTEXT* ControllerContext,
-	IN SPB_CONTEXT* SpbContext,
-	IN PREPORT_CONTEXT ReportContext
-)
-{
-	NTSTATUS status = STATUS_SUCCESS;
-	DETECTED_OBJECTS data;
-
-	Trace(
-		TRACE_LEVEL_ERROR,
-		TRACE_REPORTING,
-		"TchServiceObjectInterrupts - Entry");
-
-	RtlZeroMemory(&data, sizeof(data));
-
-	//
-	// See if new touch data is available
-	//
-	status = FtsGetObjectStatusFromController(
-		ControllerContext,
-		SpbContext,
-		&data
-	);
-
-	if (!NT_SUCCESS(status))
-	{
-		Trace(
-			TRACE_LEVEL_VERBOSE,
-			TRACE_SAMPLES,
-			"TchServiceObjectInterrupts - No object data to report - 0x%08lX",
-			status);
-
-		goto exit;
-	}
-
-	status = ReportObjects(
-		ReportContext,
-		data);
-
-	if (!NT_SUCCESS(status))
-	{
-		Trace(
-			TRACE_LEVEL_VERBOSE,
-			TRACE_SAMPLES,
-			"TchServiceObjectInterrupts - Error while reporting objects - 0x%08lX",
-			status);
-
 		goto exit;
 	}
 
@@ -247,7 +53,7 @@ exit:
 	Trace(
 		TRACE_LEVEL_ERROR,
 		TRACE_REPORTING,
-		"TchServiceObjectInterrupts - Exit");
+		"FtsEnableInterrupts - Exit");
 
 	return status;
 }
@@ -443,7 +249,8 @@ FtsConfigureInterruptEnable(
 
 	ControllerContext->MaxFingers = 8;
 
-	status = SpbWriteDataSynchronously(SpbContext, 0xB6, cmd_system_reset, sizeof(cmd_system_reset));
+	BYTE Command[3] = {SYSTEM_RESET_ADDRESS, SYSTEM_RESET_VALUE};
+	status = SpbWriteDataSynchronously(SpbContext, FTS_CMD_HW_REG_W, Command, sizeof(Command));
 	if (!NT_SUCCESS(status))
 	{
 		Trace(
@@ -468,7 +275,8 @@ FtsConfigureInterruptEnable(
 		goto exit;
 	}
 
-	status = SpbReadDataSynchronously(SpbContext, 0x85, EventDataBuffer, sizeof(EventDataBuffer));
+	BYTE EventDataBuffer[FIFO_EVENT_SIZE] = {0};
+	status = SpbReadDataSynchronously(SpbContext, FIFO_CMD_READONE, EventDataBuffer, sizeof(EventDataBuffer));
 	if (!NT_SUCCESS(status))
 	{
 		Trace(
@@ -490,7 +298,7 @@ FtsConfigureInterruptEnable(
 		goto exit;
 	}
 
-	status = SpbReadDataSynchronously(SpbContext, 0x85, EventDataBuffer, sizeof(EventDataBuffer));
+	status = SpbReadDataSynchronously(SpbContext, FIFO_CMD_READONE, EventDataBuffer, sizeof(EventDataBuffer));
 	if (!NT_SUCCESS(status))
 	{
 		Trace(
@@ -505,7 +313,7 @@ FtsConfigureInterruptEnable(
 	// cmd_scanmode[1] = 0x00; // active scan
 	// cmd_scanmode[2] = 0x01; // on
 
-	status = SpbWriteDataSynchronously(SpbContext, 0xB6, cmd_enable_int, sizeof(cmd_enable_int));
+	status = FtsEnableInterrupts(SpbContext);
 	if (!NT_SUCCESS(status))
 	{
 		Trace(
@@ -516,7 +324,11 @@ FtsConfigureInterruptEnable(
 		goto exit;
 	}
 
-	status = SpbWriteDataSynchronously(SpbContext, 0x93, cmd_sense_on, sizeof(cmd_sense_on));
+	Command[0] = 0x00;
+	Command[1] = 0x00;
+	Command[2] = 0x00;
+
+	status = SpbWriteDataSynchronously(SpbContext, FTS_CMD_MS_MT_SENSE_ON, Command, sizeof(Command));
 	if (!NT_SUCCESS(status))
 	{
 		Trace(
@@ -528,7 +340,7 @@ FtsConfigureInterruptEnable(
 	}
 
 	// drain event
-	status = SpbReadDataSynchronously(SpbContext, 0x86, EventDataBuffer, sizeof(EventDataBuffer));
+	status = SpbReadDataSynchronously(SpbContext, FIFO_CMD_READALL, EventDataBuffer, sizeof(EventDataBuffer));
 	if (!NT_SUCCESS(status))
 	{
 		Trace(

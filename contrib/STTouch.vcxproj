@@ -419,6 +419,7 @@
     <ClCompile Include="..\src\report.c" />
     <ClCompile Include="..\src\touch_power\touch_power.c" />
     <ClCompile Include="..\src\fts\ftsinternal.c" />
+    <ClCompile Include="..\src\fts\ftsevents.c" />
     <ClCompile Include="..\src\selftest\selftest.c" />
     <ClCompile Include="..\src\selftest\enoselftest.c" />
     <ClCompile Include="..\src\device.c" />
@@ -443,6 +444,8 @@
     <ClInclude Include="..\include\touch_power\public.h" />
     <ClInclude Include="..\include\touch_power\touch_power.h" />
     <ClInclude Include="..\include\fts\ftsinternal.h" />
+    <ClInclude Include="..\include\fts\ftsevents.h" />
+    <ClInclude Include="..\include\fts\ftsregs.h" />
     <ClInclude Include="..\include\selftest\enoselftest.h" />
     <ClInclude Include="..\include\selftest\selftest.h" />
     <ClInclude Include="..\include\controller.h" />

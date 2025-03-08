@@ -53,9 +53,9 @@
 // Trace function.
 //
 // begin_wpp config
-// FUNC Trace2(LEVEL, FLAGS, MSG, ...);
+// FUNC Trace(LEVEL, FLAGS, MSG, ...);
 // end_wpp
 //
 
-#define Trace(LEVEL, FLAGS, MSG, ...) \
+#define Trace2(LEVEL, FLAGS, MSG, ...) \
     DbgPrintEx(DPFLTR_IHVDRIVER_ID, DPFLTR_ERROR_LEVEL, "STTouch: " MSG "\n", __VA_ARGS__);

@@ -117,32 +117,27 @@ TchSendReport(
 			TRACE_LEVEL_INFORMATION,
 			TRACE_HID,
 			"HID Finger: "
-			"Contact Count = %d\n"
-			"Tip Switch = %d, "
-			"In Range = %d, "
-			"Confidence = %d, "
-			"Contact ID = %d, "
-			"X = %d, "
-			"Y = %d\n"
-			"Tip Switch = %d, "
-			"In Range = %d, "
-			"Confidence = %d, "
-			"Contact ID = %d, "
-			"X = %d, "
-			"Y = %d",
-			hidReportFromDriver->TouchReport.ContactCount,
-			hidReportFromDriver->TouchReport.Contacts[0].TipSwitch,
-			hidReportFromDriver->TouchReport.Contacts[0].InRange,
-			hidReportFromDriver->TouchReport.Contacts[0].Confidence,
-			hidReportFromDriver->TouchReport.Contacts[0].ContactID,
-			hidReportFromDriver->TouchReport.Contacts[0].X,
-			hidReportFromDriver->TouchReport.Contacts[0].Y,
-			hidReportFromDriver->TouchReport.Contacts[1].TipSwitch,
-			hidReportFromDriver->TouchReport.Contacts[1].InRange,
-			hidReportFromDriver->TouchReport.Contacts[1].Confidence,
-			hidReportFromDriver->TouchReport.Contacts[1].ContactID,
-			hidReportFromDriver->TouchReport.Contacts[1].X,
-			hidReportFromDriver->TouchReport.Contacts[1].Y);
+			"Contact Count = %d",
+			hidReportFromDriver->TouchReport.ContactCount);
+
+		for (int i = 0; i < hidReportFromDriver->TouchReport.ContactCount; i++)
+		{
+			Trace(
+				TRACE_LEVEL_INFORMATION,
+				TRACE_HID,
+				"Tip Switch = %d, "
+				"In Range = %d, "
+				"Confidence = %d, "
+				"Contact ID = %d, "
+				"X = %d, "
+				"Y = %d",
+				hidReportFromDriver->TouchReport.Contacts[i].TipSwitch,
+				hidReportFromDriver->TouchReport.Contacts[i].InRange,
+				hidReportFromDriver->TouchReport.Contacts[i].Confidence,
+				hidReportFromDriver->TouchReport.Contacts[i].ContactID,
+				hidReportFromDriver->TouchReport.Contacts[i].X,
+				hidReportFromDriver->TouchReport.Contacts[i].Y);
+		}
 		break;
 	}
 	case REPORTID_KEYPAD:
