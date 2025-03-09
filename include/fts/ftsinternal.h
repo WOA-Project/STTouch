@@ -218,6 +218,3 @@ FtsSetReportingFlags(
 	IN UCHAR NewMode,
 	OUT UCHAR* OldMode
 );
-
-NTSTATUS
-FtsEnableInterrupts(IN SPB_CONTEXT* SpbContext);

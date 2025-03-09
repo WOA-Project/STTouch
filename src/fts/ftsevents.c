@@ -334,7 +334,7 @@ Return Value:
 	}
 
 	// Re-enable interrupts
-	status = FtsEnableInterrupts(SpbContext);
+	status = FtsConfigureInterruptEnable(ControllerContext, SpbContext);
 	if (!NT_SUCCESS(status))
 	{
 		Trace(
@@ -362,6 +362,85 @@ exit:
 		TRACE_LEVEL_ERROR,
 		TRACE_REPORTING,
 		"TchServiceObjectInterrupts - Exit\n");
+
+	return status;
+}
+
+NTSTATUS
+TchClearObjectInterrupts(
+	IN FTS_CONTROLLER_CONTEXT* ControllerContext,
+	IN SPB_CONTEXT* SpbContext
+)
+{
+	NTSTATUS status;
+	FTS_CONTROLLER_CONTEXT* controller;
+
+	Trace(
+		TRACE_LEVEL_ERROR,
+		TRACE_REPORTING,
+		"TchClearObjectInterrupts - Entry");
+
+	controller = (FTS_CONTROLLER_CONTEXT*)ControllerContext;
+
+	if (controller->MaxFingers == 0)
+	{
+		status = STATUS_SUCCESS;
+		goto exit;
+	}
+
+	BYTE* EventDataBuffer = NULL;
+	DWORD EventDataBufferLength = 0;
+
+	status = FtsGetAllEvents(SpbContext, &EventDataBuffer, &EventDataBufferLength);
+	if (!NT_SUCCESS(status))
+	{
+		Trace(
+			TRACE_LEVEL_ERROR,
+			TRACE_INTERRUPT,
+			"TchClearObjectInterrupts - Error reading all events from the chip - 0x%08lX",
+			status);
+		goto exit;
+	}
+
+	if (EventDataBuffer == NULL || EventDataBufferLength == 0)
+	{
+		Trace(
+			TRACE_LEVEL_ERROR,
+			TRACE_INTERRUPT,
+			"TchClearObjectInterrupts - No events to process");
+		status = STATUS_SUCCESS;
+		goto exit;
+	}
+
+	// Re-enable interrupts
+	status = FtsConfigureInterruptEnable(ControllerContext, SpbContext);
+	if (!NT_SUCCESS(status))
+	{
+		Trace(
+			TRACE_LEVEL_ERROR,
+			TRACE_INTERRUPT,
+			"TchClearObjectInterrupts - Error enabling interrupts - 0x%08lX",
+			status);
+		goto free_buffer;
+	}
+
+free_buffer:
+	if (EventDataBuffer != NULL)
+	{
+		ExFreePoolWithTag(
+			EventDataBuffer,
+			TOUCH_POOL_TAG_F12
+		);
+
+		EventDataBuffer = NULL;
+		EventDataBufferLength = 0;
+	}
+
+exit:
+	Trace(
+		TRACE_LEVEL_ERROR,
+		TRACE_REPORTING,
+		"TchClearObjectInterrupts - Exit\n");
 
 	return status;
 }

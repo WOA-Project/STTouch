@@ -27,50 +27,6 @@
 #include <ftsinternal.tmh>
 
 NTSTATUS
-FtsEnableInterrupts(IN SPB_CONTEXT* SpbContext)
-{
-	NTSTATUS status;
-
-	Trace(
-		TRACE_LEVEL_ERROR,
-		TRACE_REPORTING,
-		"FtsEnableInterrupts - Entry");
-
-	BYTE CommandFTM3[3] = { IER_ADDR_FTM3, IER_ENABLE };
-	BYTE CommandFTM4[3] = { IER_ADDR_FTM4, IER_ENABLE };
-
-	status = SpbWriteDataSynchronously(SpbContext, FTS_CMD_HW_REG_W, CommandFTM3, sizeof(CommandFTM3));
-	if (!NT_SUCCESS(status))
-	{
-		Trace(
-			TRACE_LEVEL_ERROR,
-			TRACE_INTERRUPT,
-			"FtsEnableInterrupts - Error enabling interrupts (FTM3) - 0x%08lX",
-			status);
-		goto exit;
-	}
-
-	status = SpbWriteDataSynchronously(SpbContext, FTS_CMD_HW_REG_W, CommandFTM4, sizeof(CommandFTM4));
-	if (!NT_SUCCESS(status))
-	{
-		Trace(
-			TRACE_LEVEL_ERROR,
-			TRACE_INTERRUPT,
-			"FtsEnableInterrupts - Error enabling interrupts (FTM4) - 0x%08lX",
-			status);
-		goto exit;
-	}
-
-exit:
-	Trace(
-		TRACE_LEVEL_ERROR,
-		TRACE_REPORTING,
-		"FtsEnableInterrupts - Exit");
-
-	return status;
-}
-
-NTSTATUS
 FtsServiceInterrupts(
 	IN FTS_CONTROLLER_CONTEXT* ControllerContext,
 	IN SPB_CONTEXT* SpbContext,
@@ -185,7 +141,7 @@ FtsConfigureFunctions(
 
 --*/
 {
-	UNREFERENCED_PARAMETER(SpbContext);
+	NTSTATUS status;
 
 	Trace(
 		TRACE_LEVEL_ERROR,
@@ -194,6 +150,20 @@ FtsConfigureFunctions(
 
 	ControllerContext->MaxFingers = 8;
 
+	BYTE Command[3] = { 0x00, 0x00, 0x00 };
+
+	status = SpbWriteDataSynchronously(SpbContext, FTS_CMD_MS_MT_SENSE_ON, Command, sizeof(Command));
+	if (!NT_SUCCESS(status))
+	{
+		Trace(
+			TRACE_LEVEL_ERROR,
+			TRACE_INTERRUPT,
+			"FtsConfigureFunctions - Error enabling sense - 0x%08lX",
+			status);
+		goto exit;
+	}
+
+exit:
 	Trace(
 		TRACE_LEVEL_ERROR,
 		TRACE_REPORTING,
@@ -264,26 +234,27 @@ FtsConfigureInterruptEnable(
 	// Because we assume the reset GPIO Has been used instead
 	// To reset the chip
 
-	status = FtsEnableInterrupts(SpbContext);
+	BYTE CommandFTM3[3] = { IER_ADDR_FTM3, IER_ENABLE };
+	BYTE CommandFTM4[3] = { IER_ADDR_FTM4, IER_ENABLE };
+
+	status = SpbWriteDataSynchronously(SpbContext, FTS_CMD_HW_REG_W, CommandFTM3, sizeof(CommandFTM3));
 	if (!NT_SUCCESS(status))
 	{
 		Trace(
 			TRACE_LEVEL_ERROR,
 			TRACE_INTERRUPT,
-			"FtsConfigureInterruptEnable - Error enabling interrupts - 0x%08lX",
+			"FtsConfigureInterruptEnable - Error enabling interrupts (FTM3) - 0x%08lX",
 			status);
 		goto exit;
 	}
 
-	BYTE Command[3] = { 0x00, 0x00, 0x00 };
-
-	status = SpbWriteDataSynchronously(SpbContext, FTS_CMD_MS_MT_SENSE_ON, Command, sizeof(Command));
+	status = SpbWriteDataSynchronously(SpbContext, FTS_CMD_HW_REG_W, CommandFTM4, sizeof(CommandFTM4));
 	if (!NT_SUCCESS(status))
 	{
 		Trace(
 			TRACE_LEVEL_ERROR,
 			TRACE_INTERRUPT,
-			"FtsConfigureInterruptEnable - Error enabling sense - 0x%08lX",
+			"FtsConfigureInterruptEnable - Error enabling interrupts (FTM4) - 0x%08lX",
 			status);
 		goto exit;
 	}
@@ -364,21 +335,39 @@ FtsCheckInterrupts(
 
 --*/
 {
-	UNREFERENCED_PARAMETER(ControllerContext);
-	UNREFERENCED_PARAMETER(SpbContext);
-	UNREFERENCED_PARAMETER(InterruptStatus);
+	NTSTATUS status = STATUS_SUCCESS;
+	FTS_CONTROLLER_CONTEXT* controller;
 
 	Trace(
 		TRACE_LEVEL_ERROR,
 		TRACE_REPORTING,
 		"FtsCheckInterrupts - Entry");
 
+	controller = (FTS_CONTROLLER_CONTEXT*)ControllerContext;
+
+	status = TchClearObjectInterrupts(ControllerContext, SpbContext);
+	if (!NT_SUCCESS(status))
+	{
+		Trace(
+			TRACE_LEVEL_ERROR,
+			TRACE_INTERRUPT,
+			"FtsCheckInterrupts - Error servicing F12 interrupt - 0x%08lX",
+			status);
+
+		// Do not error out on no event found
+		status = STATUS_SUCCESS;
+
+		goto exit;
+	}
+
+exit:
+
 	Trace(
 		TRACE_LEVEL_ERROR,
 		TRACE_REPORTING,
 		"FtsCheckInterrupts - Exit");
 
-	return STATUS_SUCCESS;
+	return status;
 }
 
 NTSTATUS

@@ -29,3 +29,9 @@ TchServiceObjectInterrupts(
 	IN SPB_CONTEXT* SpbContext,
 	IN PREPORT_CONTEXT ReportContext
 );
+
+NTSTATUS
+TchClearObjectInterrupts(
+	IN FTS_CONTROLLER_CONTEXT* ControllerContext,
+	IN SPB_CONTEXT* SpbContext
+);
