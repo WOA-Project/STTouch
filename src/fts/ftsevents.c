@@ -308,10 +308,12 @@ Return Value:
 		goto exit;
 	}
 
-	// Process all events
-	for (DWORD i = 0; i < EventDataBufferLength; i += FIFO_EVENT_SIZE) {
+	DWORD TotalEvents = EventDataBufferLength / FIFO_EVENT_SIZE;
 
-		DWORD CurrentEventId = i / FIFO_EVENT_SIZE;
+	// Process all events
+	for (DWORD CurrentEventId = 0; CurrentEventId < TotalEvents; CurrentEventId++) {
+
+		DWORD i = CurrentEventId * FIFO_EVENT_SIZE;
 
 		Trace(
 			TRACE_LEVEL_ERROR,
