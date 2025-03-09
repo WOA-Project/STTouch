@@ -26,22 +26,50 @@
 #include <fts\ftsevents.h>
 #include <ftsevents.tmh>
 
-BYTE EventDataBuffer[FIFO_EVENT_SIZE * FIFO_DEPTH];
+/*
+	@brief Reads all events from the FIFO buffer
+	The caller is responsible for freeing the memory returned by this function
 
-// TODO: Dynamic memory allocation
+	@param SpbContext - A pointer to the current i2c context
+	@param DataBuffer - A pointer to the buffer that will contain the events
+	@param DataBufferLength - The length of the buffer
+	@return NTSTATUS
+*/
 NTSTATUS FtsGetAllEvents(
 	SPB_CONTEXT* SpbContext, 
-	BYTE* DataBuffer, 
-	DWORD DataBufferLength)
+	BYTE** DataBuffer, 
+	DWORD* DataBufferLength)
 {
 	NTSTATUS status;
+	BYTE* allEventsBuffer = NULL;
 
 	Trace(
 		TRACE_LEVEL_ERROR,
 		TRACE_REPORTING,
 		"FtsGetAllEvents - Entry");
 	
-	status = SpbReadDataSynchronously(SpbContext, FIFO_CMD_READONE, DataBuffer, FIFO_EVENT_SIZE);
+	if (DataBuffer == NULL || DataBufferLength == NULL)
+	{
+		status = STATUS_INVALID_PARAMETER;
+		goto exit;
+	}
+
+	*DataBuffer = ExAllocatePoolWithTag(
+		NonPagedPoolNx,
+		FIFO_EVENT_SIZE,
+		TOUCH_POOL_TAG_F12
+	);
+
+	if (*DataBuffer == NULL)
+	{
+		status = STATUS_INSUFFICIENT_RESOURCES;
+		*DataBufferLength = 0;
+		goto exit;
+	}
+
+	*DataBufferLength = FIFO_EVENT_SIZE;
+
+	status = SpbReadDataSynchronously(SpbContext, FIFO_CMD_READONE, *DataBuffer, FIFO_EVENT_SIZE);
 	if (!NT_SUCCESS(status))
 	{
 		Trace(
@@ -49,11 +77,20 @@ NTSTATUS FtsGetAllEvents(
 			TRACE_INTERRUPT,
 			"FtsGetAllEvents - Error reading one event from the chip - 0x%08lX",
 			status);
+
+		ExFreePoolWithTag(
+			*DataBuffer,
+			TOUCH_POOL_TAG_F12
+		);
+
+		*DataBuffer = NULL;
+		*DataBufferLength = 0;
+
 		goto exit;
 	}
 
 	// 00011111
-	DWORD leftEvents = DataBuffer[7] & 0x1F;
+	DWORD leftEvents = (*DataBuffer)[7] & 0x1F;
 
 	Trace(
 		TRACE_LEVEL_ERROR,
@@ -63,18 +100,22 @@ NTSTATUS FtsGetAllEvents(
 
 	if ((leftEvents > 0) && (leftEvents < FIFO_DEPTH))
 	{
-		if ((leftEvents + 1) * FIFO_EVENT_SIZE > DataBufferLength)
+		allEventsBuffer = ExAllocatePoolWithTag(
+			NonPagedPoolNx,
+			(leftEvents + 1) * FIFO_EVENT_SIZE,
+			TOUCH_POOL_TAG_F12
+		);
+
+		if (allEventsBuffer == NULL)
 		{
-			Trace(
-				TRACE_LEVEL_ERROR,
-				TRACE_INTERRUPT,
-				"FtsGetAllEvents - Not enough space in the buffer for all events - %d",
-				leftEvents);
-			status = STATUS_BUFFER_TOO_SMALL;
+			// Process the one that was fine instead
+			// 11100000
+			(*DataBuffer)[7] &= 0xE0;
+
 			goto exit;
 		}
 
-		status = SpbReadDataSynchronously(SpbContext, FIFO_CMD_READALL, DataBuffer + FIFO_EVENT_SIZE, leftEvents * FIFO_EVENT_SIZE);
+		status = SpbReadDataSynchronously(SpbContext, FIFO_CMD_READALL, allEventsBuffer + FIFO_EVENT_SIZE, leftEvents * FIFO_EVENT_SIZE);
 		if (!NT_SUCCESS(status))
 		{
 			Trace(
@@ -85,9 +126,28 @@ NTSTATUS FtsGetAllEvents(
 
 			// Process the one that was fine instead
 			// 11100000
-			DataBuffer[7] &= 0xE0;
+			(*DataBuffer)[7] &= 0xE0;
 
 			status = STATUS_SUCCESS;
+
+			ExFreePoolWithTag(
+				allEventsBuffer,
+				TOUCH_POOL_TAG_F12
+			);
+		}
+		else
+		{
+			// Copy the first event
+			RtlCopyMemory(allEventsBuffer, *DataBuffer, FIFO_EVENT_SIZE);
+
+			ExFreePoolWithTag(
+				*DataBuffer,
+				TOUCH_POOL_TAG_F12
+			);
+
+			*DataBuffer = allEventsBuffer;
+			allEventsBuffer = NULL;
+			*DataBufferLength = (leftEvents + 1) * FIFO_EVENT_SIZE;
 		}
 	}
 
@@ -101,9 +161,328 @@ exit:
 }
 
 NTSTATUS
-FtsGetObjectStatusFromController(
-	IN VOID* ControllerContext,
-	IN SPB_CONTEXT* SpbContext
+FtsProcessEnterPointerEvent(
+	FTS_CONTROLLER_CONTEXT* ControllerContext,
+	PREPORT_CONTEXT ReportContext,
+	BYTE* EventData
+)
+{
+	NTSTATUS status = STATUS_SUCCESS;
+
+	int x, y;
+	BYTE X_MSB = 0;
+	BYTE X_LSB = 0;
+	BYTE Y_MSB = 0;
+	BYTE Y_LSB = 0;
+
+	Trace(
+		TRACE_LEVEL_ERROR,
+		TRACE_REPORTING,
+		"FtsProcessOneEvent - Enter Pointer");
+
+	BYTE touchId = (EventData[2] & 0x0F);
+
+	if (touchId >= MAX_TOUCHES || touchId < 0)
+	{
+		Trace(
+			TRACE_LEVEL_ERROR,
+			TRACE_REPORTING,
+			"FtsProcessOneEvent - Invalid touch id %d",
+			touchId);
+		goto exit;
+	}
+
+	X_MSB = EventData[3];
+	X_LSB = (EventData[5] & 0xF0) >> 4;
+
+	Y_MSB = EventData[4];
+	Y_LSB = EventData[5] & 0x0F;
+
+	x = (X_MSB << 4) | X_LSB;
+	y = (Y_MSB << 4) | Y_LSB;
+
+	ControllerContext->DetectedObjects.States[touchId] = OBJECT_STATE_FINGER_PRESENT_WITH_ACCURATE_POS;
+	ControllerContext->DetectedObjects.Positions[touchId].X = x;
+	ControllerContext->DetectedObjects.Positions[touchId].Y = y;
+
+	Trace(
+		TRACE_LEVEL_ERROR,
+		TRACE_REPORTING,
+		"FtsProcessOneEvent - Touch %d at (x=%d, y=%d)",
+		touchId,
+		x,
+		y);
+
+	status = ReportObjects(
+		ReportContext,
+		ControllerContext->DetectedObjects);
+
+	if (!NT_SUCCESS(status))
+	{
+		Trace(
+			TRACE_LEVEL_VERBOSE,
+			TRACE_SAMPLES,
+			"FtsProcessOneEvent - Error while reporting objects - 0x%08lX",
+			status);
+
+		goto exit;
+	}
+
+exit:
+
+	Trace(
+		TRACE_LEVEL_ERROR,
+		TRACE_REPORTING,
+		"FtsProcessOneEvent - Exit - 0x%08lX",
+		status);
+
+	return status;
+}
+
+NTSTATUS
+FtsProcessMotionPointerEvent(
+	FTS_CONTROLLER_CONTEXT* ControllerContext,
+	PREPORT_CONTEXT ReportContext,
+	BYTE* EventData
+)
+{
+	NTSTATUS status = STATUS_SUCCESS;
+
+	int x, y;
+	BYTE X_MSB = 0;
+	BYTE X_LSB = 0;
+	BYTE Y_MSB = 0;
+	BYTE Y_LSB = 0;
+
+	Trace(
+		TRACE_LEVEL_ERROR,
+		TRACE_REPORTING,
+		"FtsProcessOneEvent - Motion Pointer");
+
+	BYTE touchId = (EventData[2] & 0x0F);
+
+	if (touchId >= MAX_TOUCHES || touchId < 0)
+	{
+		Trace(
+			TRACE_LEVEL_ERROR,
+			TRACE_REPORTING,
+			"FtsProcessOneEvent - Invalid touch id %d",
+			touchId);
+		goto exit;
+	}
+
+	X_MSB = EventData[3];
+	X_LSB = (EventData[5] & 0xF0) >> 4;
+
+	Y_MSB = EventData[4];
+	Y_LSB = EventData[5] & 0x0F;
+
+	x = (X_MSB << 4) | X_LSB;
+	y = (Y_MSB << 4) | Y_LSB;
+
+	ControllerContext->DetectedObjects.States[touchId] = OBJECT_STATE_FINGER_PRESENT_WITH_ACCURATE_POS;
+	ControllerContext->DetectedObjects.Positions[touchId].X = x;
+	ControllerContext->DetectedObjects.Positions[touchId].Y = y;
+
+	Trace(
+		TRACE_LEVEL_ERROR,
+		TRACE_REPORTING,
+		"FtsProcessOneEvent - Touch %d at (x=%d, y=%d)",
+		touchId,
+		x,
+		y);
+
+	status = ReportObjects(
+		ReportContext,
+		ControllerContext->DetectedObjects);
+
+	if (!NT_SUCCESS(status))
+	{
+		Trace(
+			TRACE_LEVEL_VERBOSE,
+			TRACE_SAMPLES,
+			"FtsProcessOneEvent - Error while reporting objects - 0x%08lX",
+			status);
+
+		goto exit;
+	}
+
+exit:
+
+	Trace(
+		TRACE_LEVEL_ERROR,
+		TRACE_REPORTING,
+		"FtsProcessOneEvent - Exit - 0x%08lX",
+		status);
+
+	return status;
+}
+
+NTSTATUS
+FtsProcessLeavePointerEvent(
+	FTS_CONTROLLER_CONTEXT* ControllerContext,
+	PREPORT_CONTEXT ReportContext,
+	BYTE* EventData
+)
+{
+	NTSTATUS status = STATUS_SUCCESS;
+
+	int x, y;
+	BYTE X_MSB = 0;
+	BYTE X_LSB = 0;
+	BYTE Y_MSB = 0;
+	BYTE Y_LSB = 0;
+
+	Trace(
+		TRACE_LEVEL_ERROR,
+		TRACE_REPORTING,
+		"FtsProcessOneEvent - Leave Pointer");
+
+	BYTE touchId = (EventData[2] & 0x0F);
+
+	if (touchId >= MAX_TOUCHES || touchId < 0)
+	{
+		Trace(
+			TRACE_LEVEL_ERROR,
+			TRACE_REPORTING,
+			"FtsProcessOneEvent - Invalid touch id %d",
+			touchId);
+		goto exit;
+	}
+
+	X_MSB = EventData[3];
+	X_LSB = (EventData[5] & 0xF0) >> 4;
+
+	Y_MSB = EventData[4];
+	Y_LSB = EventData[5] & 0x0F;
+
+	x = (X_MSB << 4) | X_LSB;
+	y = (Y_MSB << 4) | Y_LSB;
+
+	ControllerContext->DetectedObjects.States[touchId] = OBJECT_STATE_NOT_PRESENT;
+	ControllerContext->DetectedObjects.Positions[touchId].X = x;
+	ControllerContext->DetectedObjects.Positions[touchId].Y = y;
+
+	Trace(
+		TRACE_LEVEL_ERROR,
+		TRACE_REPORTING,
+		"FtsProcessOneEvent - Touch %d at (x=%d, y=%d) left",
+		touchId,
+		x,
+		y);
+
+	status = ReportObjects(
+		ReportContext,
+		ControllerContext->DetectedObjects);
+
+	if (!NT_SUCCESS(status))
+	{
+		Trace(
+			TRACE_LEVEL_VERBOSE,
+			TRACE_SAMPLES,
+			"FtsProcessOneEvent - Error while reporting objects - 0x%08lX",
+			status);
+
+		goto exit;
+	}
+
+exit:
+
+	Trace(
+		TRACE_LEVEL_ERROR,
+		TRACE_REPORTING,
+		"FtsProcessOneEvent - Exit - 0x%08lX",
+		status);
+
+	return status;
+}
+
+NTSTATUS
+FtsProcessOneEvent(
+	FTS_CONTROLLER_CONTEXT* ControllerContext,
+	PREPORT_CONTEXT ReportContext,
+	BYTE* EventData
+)
+{
+	NTSTATUS status = STATUS_SUCCESS;
+
+	BYTE EventID = EventData[0];
+
+	switch (EventID)
+	{
+	case EVENTID_ENTER_POINTER:
+	{
+		status = FtsProcessEnterPointerEvent(ControllerContext, ReportContext, EventData);
+		if (!NT_SUCCESS(status))
+		{
+			Trace(
+				TRACE_LEVEL_VERBOSE,
+				TRACE_SAMPLES,
+				"FtsProcessOneEvent - Error while processing enter pointer event - 0x%08lX",
+				status);
+
+			goto exit;
+		}
+
+		break;
+	}
+	case EVENTID_MOTION_POINTER:
+	{
+		status = FtsProcessMotionPointerEvent(ControllerContext, ReportContext, EventData);
+		if (!NT_SUCCESS(status))
+		{
+			Trace(
+				TRACE_LEVEL_VERBOSE,
+				TRACE_SAMPLES,
+				"FtsProcessOneEvent - Error while processing motion pointer event - 0x%08lX",
+				status);
+			goto exit;
+		}
+
+		break;
+	}
+	case EVENTID_LEAVE_POINTER:
+	{
+		status = FtsProcessLeavePointerEvent(ControllerContext, ReportContext, EventData);
+		if (!NT_SUCCESS(status))
+		{
+			Trace(
+				TRACE_LEVEL_VERBOSE,
+				TRACE_SAMPLES,
+				"FtsProcessOneEvent - Error while processing leave pointer event - 0x%08lX",
+				status);
+			goto exit;
+		}
+
+		break;
+	}
+	default:
+	{
+		Trace(
+			TRACE_LEVEL_ERROR,
+			TRACE_REPORTING,
+			"FtsProcessOneEvent - Unknown event id %d",
+			EventID);
+		break;
+	}
+	}
+
+exit:
+
+	Trace(
+		TRACE_LEVEL_ERROR,
+		TRACE_REPORTING,
+		"FtsProcessOneEvent - Exit - 0x%08lX",
+		status);
+
+	return status;
+}
+
+NTSTATUS
+TchServiceObjectInterrupts(
+	IN FTS_CONTROLLER_CONTEXT* ControllerContext,
+	IN SPB_CONTEXT* SpbContext,
+	IN PREPORT_CONTEXT ReportContext
 )
 /*++
 
@@ -131,9 +510,8 @@ Return Value:
 	Trace(
 		TRACE_LEVEL_ERROR,
 		TRACE_REPORTING,
-		"FtsGetObjectStatusFromController - Entry");
+		"TchServiceObjectInterrupts - Entry");
 
-	int i, x, y;
 	controller = (FTS_CONTROLLER_CONTEXT*)ControllerContext;
 
 	if (controller->MaxFingers == 0)
@@ -142,183 +520,52 @@ Return Value:
 		goto exit;
 	}
 
-	status = FtsGetAllEvents(SpbContext, EventDataBuffer, sizeof(EventDataBuffer));
+	BYTE* EventDataBuffer = NULL;
+	DWORD EventDataBufferLength = 0;
+
+	status = FtsGetAllEvents(SpbContext, &EventDataBuffer, &EventDataBufferLength);
 	if (!NT_SUCCESS(status))
 	{
 		Trace(
 			TRACE_LEVEL_ERROR,
 			TRACE_INTERRUPT,
-			"FtsGetObjectStatusFromController - Error reading all events from the chip - 0x%08lX",
+			"TchServiceObjectInterrupts - Error reading all events from the chip - 0x%08lX",
 			status);
 		goto exit;
 	}
 
-	BYTE* CurrentDataBuffer = EventDataBuffer;
-
-	BYTE EventID = 0;
-	BYTE X_MSB = 0;
-	BYTE X_LSB = 0;
-	BYTE Y_MSB = 0;
-	BYTE Y_LSB = 0;
-
-	BOOLEAN bGotOneTouchReport = FALSE;
-
-	while (TRUE)
+	if (EventDataBuffer == NULL || EventDataBufferLength == 0)
 	{
-		EventID = CurrentDataBuffer[0];
+		Trace(
+			TRACE_LEVEL_ERROR,
+			TRACE_INTERRUPT,
+			"TchServiceObjectInterrupts - No events to process");
+		status = STATUS_SUCCESS;
+		goto exit;
+	}
 
-		switch (EventID)
+	// Process all events
+	for (DWORD i = 0; i < EventDataBufferLength; i += FIFO_EVENT_SIZE) {
+
+		DWORD CurrentEventId = i / FIFO_EVENT_SIZE;
+
+		Trace(
+			TRACE_LEVEL_ERROR,
+			TRACE_REPORTING,
+			"TchServiceObjectInterrupts - Processing event %d",
+			CurrentEventId);
+
+		// Process the event
+		status = FtsProcessOneEvent(controller, ReportContext, EventDataBuffer + i);
+		if (!NT_SUCCESS(status))
 		{
-			case EVENTID_ENTER_POINTER:
-			{
-				Trace(
-					TRACE_LEVEL_ERROR,
-					TRACE_REPORTING,
-					"FtsGetObjectStatusFromController - Enter Pointer");
-
-				BYTE touchId = (CurrentDataBuffer[2] & 0x0F);
-
-				if (touchId >= MAX_TOUCHES || touchId < 0)
-				{
-					Trace(
-						TRACE_LEVEL_ERROR,
-						TRACE_REPORTING,
-						"FtsGetObjectStatusFromController - Invalid touch id %d",
-						touchId);
-					break;
-				}
-
-				X_MSB = CurrentDataBuffer[3];
-				X_LSB = (CurrentDataBuffer[5] & 0xF0) >> 4;
-
-				Y_MSB = CurrentDataBuffer[4];
-				Y_LSB = CurrentDataBuffer[5] & 0x0F;
-
-				x = (X_MSB << 4) | X_LSB;
-				y = (Y_MSB << 4) | Y_LSB;
-
-				controller->DetectedObjects.States[touchId] = OBJECT_STATE_FINGER_PRESENT_WITH_ACCURATE_POS;
-				controller->DetectedObjects.Positions[touchId].X = x;
-				controller->DetectedObjects.Positions[touchId].Y = y;
-
-				Trace(
-					TRACE_LEVEL_ERROR,
-					TRACE_REPORTING,
-					"FtsGetObjectStatusFromController - Touch %d at (x=%d, y=%d)",
-					touchId,
-					x,
-					y);
-
-				bGotOneTouchReport = TRUE;
-
-				break;
-			}
-			case EVENTID_MOTION_POINTER:
-			{
-				Trace(
-					TRACE_LEVEL_ERROR,
-					TRACE_REPORTING,
-					"FtsGetObjectStatusFromController - Motion Pointer");
-
-				BYTE touchId = (CurrentDataBuffer[2] & 0x0F);
-
-				if (touchId >= MAX_TOUCHES || touchId < 0)
-				{
-					Trace(
-						TRACE_LEVEL_ERROR,
-						TRACE_REPORTING,
-						"FtsGetObjectStatusFromController - Invalid touch id %d",
-						touchId);
-					break;
-				}
-
-				X_MSB = CurrentDataBuffer[3];
-				X_LSB = (CurrentDataBuffer[5] & 0xF0) >> 4;
-
-				Y_MSB = CurrentDataBuffer[4];
-				Y_LSB = CurrentDataBuffer[5] & 0x0F;
-
-				x = (X_MSB << 4) | X_LSB;
-				y = (Y_MSB << 4) | Y_LSB;
-
-				controller->DetectedObjects.States[touchId] = OBJECT_STATE_FINGER_PRESENT_WITH_ACCURATE_POS;
-				controller->DetectedObjects.Positions[touchId].X = x;
-				controller->DetectedObjects.Positions[touchId].Y = y;
-
-				Trace(
-					TRACE_LEVEL_ERROR,
-					TRACE_REPORTING,
-					"FtsGetObjectStatusFromController - Touch %d at (x=%d, y=%d)",
-					touchId,
-					x,
-					y);
-
-				bGotOneTouchReport = TRUE;
-
-				break;
-			}
-			case EVENTID_LEAVE_POINTER:
-			{
-				Trace(
-					TRACE_LEVEL_ERROR,
-					TRACE_REPORTING,
-					"FtsGetObjectStatusFromController - Leave Pointer");
-
-				BYTE touchId = (CurrentDataBuffer[2] & 0x0F);
-
-				if (touchId >= MAX_TOUCHES || touchId < 0)
-				{
-					Trace(
-						TRACE_LEVEL_ERROR,
-						TRACE_REPORTING,
-						"FtsGetObjectStatusFromController - Invalid touch id %d",
-						touchId);
-					break;
-				}
-
-				X_MSB = CurrentDataBuffer[3];
-				X_LSB = (CurrentDataBuffer[5] & 0xF0) >> 4;
-
-				Y_MSB = CurrentDataBuffer[4];
-				Y_LSB = CurrentDataBuffer[5] & 0x0F;
-
-				x = (X_MSB << 4) | X_LSB;
-				y = (Y_MSB << 4) | Y_LSB;
-
-				controller->DetectedObjects.States[touchId] = OBJECT_STATE_NOT_PRESENT;
-				controller->DetectedObjects.Positions[touchId].X = x;
-				controller->DetectedObjects.Positions[touchId].Y = y;
-
-				Trace(
-					TRACE_LEVEL_ERROR,
-					TRACE_REPORTING,
-					"FtsGetObjectStatusFromController - Touch %d at (x=%d, y=%d) left",
-					touchId,
-					x,
-					y);
-
-				bGotOneTouchReport = TRUE;
-
-				break;
-			}
-			default:
-			{
-				Trace(
-					TRACE_LEVEL_ERROR,
-					TRACE_REPORTING,
-					"FtsGetObjectStatusFromController - Unknown event id %d",
-					EventID);
-				break;
-			}
-		}
-
-		CurrentDataBuffer += FIFO_EVENT_SIZE;
-
-		// Was the last event the last one?
-		// 00011111
-		if (!(CurrentDataBuffer[7 - FIFO_EVENT_SIZE] & 0x1F))
-		{
-			break;
+			Trace(
+				TRACE_LEVEL_ERROR,
+				TRACE_INTERRUPT,
+				"TchServiceObjectInterrupts - Error processing event %d - 0x%08lX",
+				CurrentEventId,
+				status);
+			goto free_buffer;
 		}
 	}
 
@@ -329,93 +576,28 @@ Return Value:
 		Trace(
 			TRACE_LEVEL_ERROR,
 			TRACE_INTERRUPT,
-			"FtsGetObjectStatusFromController - Error enabling interrupts - 0x%08lX",
+			"TchServiceObjectInterrupts - Error enabling interrupts - 0x%08lX",
 			status);
-		goto exit;
+		goto free_buffer;
 	}
 
-	if (!bGotOneTouchReport)
+free_buffer:
+	if (EventDataBuffer != NULL)
 	{
-		status = STATUS_NO_DATA_DETECTED;
-	}
+		ExFreePoolWithTag(
+			EventDataBuffer,
+			TOUCH_POOL_TAG_F12
+		);
 
-	for (i = 0; i < MAX_TOUCHES; i++)
-	{
-		if (controller->DetectedObjects.States[i] != OBJECT_STATE_NOT_PRESENT)
-		{
-			Trace(
-				TRACE_LEVEL_INFORMATION,
-				TRACE_REPORTING,
-				"FtsGetObjectStatusFromController/Cache - Finger ID: %d, State: %d, X: %d, Y: %d",
-				i,
-				controller->DetectedObjects.States[i],
-				controller->DetectedObjects.Positions[i].X,
-				controller->DetectedObjects.Positions[i].Y);
-		}
+		EventDataBuffer = NULL;
+		EventDataBufferLength = 0;
 	}
 
 exit:
 	Trace(
 		TRACE_LEVEL_ERROR,
 		TRACE_REPORTING,
-		"FtsGetObjectStatusFromController - Exit\n");
-
-	return status;
-}
-
-NTSTATUS
-TchServiceObjectInterrupts(
-	IN FTS_CONTROLLER_CONTEXT* ControllerContext,
-	IN SPB_CONTEXT* SpbContext,
-	IN PREPORT_CONTEXT ReportContext
-)
-{
-	NTSTATUS status = STATUS_SUCCESS;
-
-	Trace(
-		TRACE_LEVEL_ERROR,
-		TRACE_REPORTING,
-		"TchServiceObjectInterrupts - Entry");
-
-	//
-	// See if new touch data is available
-	//
-	status = FtsGetObjectStatusFromController(
-		ControllerContext,
-		SpbContext
-	);
-
-	if (!NT_SUCCESS(status))
-	{
-		Trace(
-			TRACE_LEVEL_VERBOSE,
-			TRACE_SAMPLES,
-			"TchServiceObjectInterrupts - No object data to report - 0x%08lX",
-			status);
-
-		goto exit;
-	}
-
-	status = ReportObjects(
-		ReportContext,
-		ControllerContext->DetectedObjects);
-
-	if (!NT_SUCCESS(status))
-	{
-		Trace(
-			TRACE_LEVEL_VERBOSE,
-			TRACE_SAMPLES,
-			"TchServiceObjectInterrupts - Error while reporting objects - 0x%08lX",
-			status);
-
-		goto exit;
-	}
-
-exit:
-	Trace(
-		TRACE_LEVEL_ERROR,
-		TRACE_REPORTING,
-		"TchServiceObjectInterrupts - Exit");
+		"TchServiceObjectInterrupts - Exit\n");
 
 	return status;
 }
