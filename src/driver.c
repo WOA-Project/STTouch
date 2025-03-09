@@ -68,6 +68,11 @@ Return Value:
     //
     WPP_INIT_TRACING(DriverObject, RegistryPath);
 
+    Trace(
+        TRACE_LEVEL_INFORMATION,
+        TRACE_INIT,
+        "DriverEntry - Entry");
+
     //
     // Create a framework driver object
     //
@@ -93,10 +98,22 @@ Return Value:
             "Error creating WDF driver object - 0x%08lX",
             status);
 
+		Trace(
+			TRACE_LEVEL_INFORMATION,
+			TRACE_INIT,
+			"DriverEntry - Exit - 0x%08lX",
+            status);
+
         WPP_CLEANUP(DriverObject);
 
         goto exit;
     }
+
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_INIT,
+		"DriverEntry - Exit - 0x%08lX",
+        status);
 
 exit:
 
@@ -138,6 +155,11 @@ Return Value:
 
     UNREFERENCED_PARAMETER(Driver);
     PAGED_CODE();
+
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_INIT,
+		"OnDeviceAdd - Entry");
 
     //
     // Relinquish power policy ownership because HIDCLASS acts a power
@@ -325,6 +347,12 @@ Return Value:
 
 exit:
 
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_INIT,
+		"OnDeviceAdd - Exit - 0x%08lX",
+		status);
+
     return status;
 }
 
@@ -349,6 +377,16 @@ Return Value:
 --*/
 {
     PAGED_CODE();
+
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_INIT,
+		"OnContextCleanup - Entry");
+
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_INIT,
+		"OnContextCleanup - Exit");
 
     WPP_CLEANUP(WdfDriverWdmGetDriverObject(Driver));
 }

@@ -78,6 +78,11 @@ TchSendReport(
 	PHID_INPUT_REPORT hidReportRequestBuffer;
 	size_t hidReportRequestBufferLength;
 
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_REPORTING,
+		"TchSendReport - Entry");
+
 	status = STATUS_SUCCESS;
 	request = NULL;
 
@@ -222,6 +227,11 @@ TchSendReport(
 	WdfRequestComplete(request, status);
 
 exit:
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_REPORTING,
+		"TchSendReport - Exit - 0x%08lX",
+		status);
 	return status;
 }
 
@@ -254,6 +264,11 @@ Return Value:
 {
 	PDEVICE_EXTENSION devContext;
 	NTSTATUS status;
+
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_REPORTING,
+		"TchReadReport - Entry");
 
 	devContext = GetDeviceContext(Device);
 
@@ -293,6 +308,12 @@ Return Value:
 
 exit:
 
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_REPORTING,
+		"TchReadReport - Exit - 0x%08lX",
+		status);
+
 	return status;
 }
 
@@ -327,6 +348,11 @@ Return Value:
 
 	UNREFERENCED_PARAMETER(Device);
 
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_REPORTING,
+		"TchGetString - Entry");
+
 	status = STATUS_SUCCESS;
 
 	irp = WdfRequestWdmGetIrp(Request);
@@ -335,18 +361,42 @@ Return Value:
 		0xffff)
 	{
 	case HID_STRING_ID_IMANUFACTURER:
+
+		Trace(
+			TRACE_LEVEL_INFORMATION,
+			TRACE_HID,
+			"Manufacturer ID requested");
+
 		strId = gpwstrManufacturerID;
 		break;
 
 	case HID_STRING_ID_IPRODUCT:
+
+		Trace(
+			TRACE_LEVEL_INFORMATION,
+			TRACE_HID,
+			"Product ID requested");
+
 		strId = gpwstrProductID;
 		break;
 
 	case HID_STRING_ID_ISERIALNUMBER:
+
+		Trace(
+			TRACE_LEVEL_INFORMATION,
+			TRACE_HID,
+			"Serial number requested");
+
 		strId = gpwstrSerialNumber;
 		break;
 
 	default:
+
+		Trace(
+			TRACE_LEVEL_ERROR,
+			TRACE_HID,
+			"Error getting device string - Invalid string ID");
+
 		strId = NULL;
 		break;
 	}
@@ -375,6 +425,12 @@ Return Value:
 			status);
 	}
 
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_REPORTING,
+		"TchGetString - Exit - 0x%08lX",
+		status);
+
 	return status;
 }
 
@@ -387,6 +443,11 @@ TchGenerateHidReportDescriptor(
 	PDEVICE_EXTENSION devContext;
 	FTS_CONTROLLER_CONTEXT* touchContext;
 	NTSTATUS status;
+
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_REPORTING,
+		"TchGenerateHidReportDescriptor - Entry");
 
 	devContext = GetDeviceContext(Device);
 
@@ -470,6 +531,13 @@ TchGenerateHidReportDescriptor(
 
 exit:
 	ExFreePoolWithTag((PVOID)hidReportDescBuffer, TOUCH_POOL_TAG);
+
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_REPORTING,
+		"TchGenerateHidReportDescriptor - Exit - 0x%08lX",
+		status);
+
 	return status;
 }
 
@@ -501,6 +569,11 @@ Return Value:
 	NTSTATUS status;
 
 	UNREFERENCED_PARAMETER(Device);
+
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_REPORTING,
+		"TchGetHidDescriptor - Entry");
 
 	//
 	// This IOCTL is METHOD_NEITHER so WdfRequestRetrieveOutputMemory
@@ -549,6 +622,12 @@ Return Value:
 
 exit:
 
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_REPORTING,
+		"TchGetHidDescriptor - Exit - 0x%08lX",
+		status);
+
 	return status;
 }
 
@@ -581,6 +660,11 @@ Return Value:
 {
 	WDFMEMORY memory;
 	NTSTATUS status;
+
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_REPORTING,
+		"TchGetReportDescriptor - Entry");
 
 	//
 	// This IOCTL is METHOD_NEITHER so WdfRequestRetrieveOutputMemory
@@ -628,6 +712,12 @@ Return Value:
 
 exit:
 
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_REPORTING,
+		"TchGetReportDescriptor - Exit - 0x%08lX",
+		status);
+
 	return status;
 }
 
@@ -653,6 +743,11 @@ Return Value:
 {
 	PHID_DEVICE_ATTRIBUTES deviceAttributes;
 	NTSTATUS status;
+
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_REPORTING,
+		"TchGetDeviceAttributes - Entry");
 
 	//
 	// This IOCTL is METHOD_NEITHER so WdfRequestRetrieveOutputMemory
@@ -691,6 +786,12 @@ Return Value:
 
 exit:
 
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_REPORTING,
+		"TchGetDeviceAttributes - Exit - 0x%08lX",
+		status);
+
 	return status;
 }
 
@@ -720,6 +821,11 @@ Return Value:
 	PHID_XFER_PACKET featurePacket;
 	WDF_REQUEST_PARAMETERS params;
 	NTSTATUS status;
+
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_DRIVER,
+		"TchSetFeatureReport - Entry");
 
 	devContext = GetDeviceContext(Device);
 	status = STATUS_SUCCESS;
@@ -762,6 +868,21 @@ Return Value:
 		);
 
 		PPTP_DEVICE_INPUT_MODE_REPORT DeviceInputMode = (PPTP_DEVICE_INPUT_MODE_REPORT) featurePacket->reportBuffer;
+
+		Trace(
+			TRACE_LEVEL_INFORMATION,
+			TRACE_DRIVER,
+			"%!FUNC! Report REPORTID_REPORTMODE requested mode %d",
+			DeviceInputMode->Mode
+		);
+
+		Trace(
+			TRACE_LEVEL_INFORMATION,
+			TRACE_DRIVER,
+			"%!FUNC! Report REPORTID_REPORTMODE requested device ID %d",
+			DeviceInputMode->DeviceID
+		);
+
 		switch (DeviceInputMode->Mode)
 		{
 		case PTP_COLLECTION_MOUSE:
@@ -787,6 +908,16 @@ Return Value:
 			devContext->PtpInputOn = TRUE;
 			break;
 		}
+		default:
+		{
+			Trace(
+				TRACE_LEVEL_INFORMATION,
+				TRACE_DRIVER,
+				"%!FUNC! Report REPORTID_REPORTMODE requested unknown mode"
+			);
+			//status = STATUS_INVALID_PARAMETER;
+			//goto exit;
+		}
 		}
 
 		Trace(
@@ -811,6 +942,12 @@ Return Value:
 	}
 
 exit:
+
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_DRIVER,
+		"TchSetFeatureReport - Exit - 0x%08lX",
+		status);
 
 	return status;
 }
@@ -842,6 +979,11 @@ Return Value:
 	WDF_REQUEST_PARAMETERS params;
 	NTSTATUS status;
 	size_t ReportSize;
+
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_DRIVER,
+		"TchGetFeatureReport - Entry");
 
 	devContext = GetDeviceContext(Device);
 	status = STATUS_SUCCESS;
@@ -1002,6 +1144,12 @@ Return Value:
 	}
 
 exit:
+
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_DRIVER,
+		"TchGetFeatureReport - Exit - 0x%08lX",
+		status);
 
 	return status;
 }

@@ -53,6 +53,11 @@ TchStartDevice(
 	ULONG interruptStatus;
 	NTSTATUS status;
 
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_INIT,
+		"TchStartDevice - Entry");
+
 	controller = (FTS_CONTROLLER_CONTEXT*)ControllerContext;
 	interruptStatus = 0;
 	status = STATUS_SUCCESS;
@@ -142,6 +147,13 @@ TchStartDevice(
 	}
 
 exit:
+
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_INIT,
+		"TchStartDevice - Exit - 0x%08lX",
+		status);
+
 	return status;
 }
 
@@ -169,9 +181,19 @@ Return Value:
 {
 	FTS_CONTROLLER_CONTEXT* controller;
 
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_INIT,
+		"TchStopDevice - Entry");
+
 	UNREFERENCED_PARAMETER(SpbContext);
 
 	controller = (FTS_CONTROLLER_CONTEXT*)ControllerContext;
+
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_INIT,
+		"TchStopDevice - Exit");
 
 	return STATUS_SUCCESS;
 }
@@ -200,6 +222,11 @@ Return Value:
 	FTS_CONTROLLER_CONTEXT* context;
 	NTSTATUS status;
 	
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_INIT,
+		"TchAllocateContext - Entry");
+
 	context = ExAllocatePoolWithTag(
 		NonPagedPoolNx,
 		sizeof(FTS_CONTROLLER_CONTEXT),
@@ -249,6 +276,12 @@ Return Value:
 
 exit:
 
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_INIT,
+		"TchAllocateContext - Exit - 0x%08lX",
+		status);
+
 	return status;
 }
 
@@ -273,6 +306,11 @@ Return Value:
 {
 	FTS_CONTROLLER_CONTEXT* controller;
 
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_INIT,
+		"TchFreeContext - Entry");
+
 	controller = (FTS_CONTROLLER_CONTEXT*)ControllerContext;
 
 	if (controller != NULL)
@@ -285,6 +323,11 @@ Return Value:
 
 		ExFreePoolWithTag(controller, TOUCH_POOL_TAG);
 	}
+
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_INIT,
+		"TchFreeContext - Exit");
 
 	return STATUS_SUCCESS;
 }

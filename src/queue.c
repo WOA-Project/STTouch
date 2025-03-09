@@ -81,7 +81,7 @@ Return Value:
     // strict about type checking. You cannot get Irp->UserBuffer by using
     // WdfRequestRetrieveOutputMemory if the ioctl is not a METHOD_NEITHER
     // internal ioctl. So depending on the ioctl code, we will either
-    // use retreive function or escape to WDM to get the UserBuffer.
+    // use retrieve function or escape to WDM to get the UserBuffer.
     //
 
     switch (IoControlCode) {

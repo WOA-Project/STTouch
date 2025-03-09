@@ -111,6 +111,12 @@ OnInterruptIsr(
     }
 
 exit:
+
+	Trace(
+		TRACE_LEVEL_ERROR,
+		TRACE_REPORTING,
+		"OnInterruptIsr - Exit");
+
     return TRUE;
 }
 
@@ -139,6 +145,11 @@ Return Value:
     NTSTATUS status;
     PDEVICE_EXTENSION devContext;
 
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_POWER,
+		"OnD0Entry - Entry");
+
     devContext = GetDeviceContext(Device);
 
     UNREFERENCED_PARAMETER(PreviousState);
@@ -165,6 +176,12 @@ Return Value:
     // Complete any pending Idle IRPs
     //
     TchCompleteIdleIrp(devContext);
+
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_POWER,
+		"OnD0Entry - Exit - 0x%08lX",
+        status);
 
     return status;
 }
@@ -197,6 +214,11 @@ Return Value:
 
     PAGED_CODE();
 
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_POWER,
+		"OnD0Exit - Entry");
+
     devContext = GetDeviceContext(Device);
 
     UNREFERENCED_PARAMETER(TargetState);
@@ -212,6 +234,12 @@ Return Value:
             status);
     }
 
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_POWER,
+		"OnD0Exit - Exit - 0x%08lX",
+		status);
+
     return status;
 }
 
@@ -220,9 +248,13 @@ NTSTATUS GetGPIO(WDFIOTARGET gpio, unsigned char* value)
     NTSTATUS status = STATUS_SUCCESS;
     WDF_MEMORY_DESCRIPTOR outputDescriptor;
 
+	Trace(TRACE_LEVEL_INFORMATION, TRACE_DRIVER, "GetGPIO Entry");
+
     WDF_MEMORY_DESCRIPTOR_INIT_BUFFER(&outputDescriptor, value, 1);
 
     status = WdfIoTargetSendIoctlSynchronously(gpio, NULL, IOCTL_GPIO_READ_PINS, NULL, &outputDescriptor, NULL, NULL);
+
+	Trace(TRACE_LEVEL_INFORMATION, TRACE_DRIVER, "GetGPIO Exit - 0x%08lX", status);
 
     return status;
 }
@@ -232,10 +264,14 @@ NTSTATUS SetGPIO(WDFIOTARGET gpio, unsigned char* value)
     NTSTATUS status = STATUS_SUCCESS;
     WDF_MEMORY_DESCRIPTOR inputDescriptor, outputDescriptor;
 
+	Trace(TRACE_LEVEL_INFORMATION, TRACE_DRIVER, "SetGPIO Entry");
+
     WDF_MEMORY_DESCRIPTOR_INIT_BUFFER(&inputDescriptor, value, 1);
     WDF_MEMORY_DESCRIPTOR_INIT_BUFFER(&outputDescriptor, value, 1);
 
     status = WdfIoTargetSendIoctlSynchronously(gpio, NULL, IOCTL_GPIO_WRITE_PINS, &inputDescriptor, &outputDescriptor, NULL, NULL);
+
+	Trace(TRACE_LEVEL_INFORMATION, TRACE_DRIVER, "SetGPIO Exit - 0x%08lX", status);
 
     return status;
 }
@@ -279,7 +315,7 @@ NTSTATUS OpenIOTarget(PDEVICE_EXTENSION ctx, LARGE_INTEGER res, ACCESS_MASK use,
     }
 
 Exit:
-    Trace(TRACE_LEVEL_INFORMATION, TRACE_DRIVER, "OpenIOTarget Exit");
+    Trace(TRACE_LEVEL_INFORMATION, TRACE_DRIVER, "OpenIOTarget Exit - 0x%08lX", status);
     return status;
 }
 
@@ -320,6 +356,11 @@ OnPrepareHardware(
     unsigned char value;
 
     UNREFERENCED_PARAMETER(FxResourcesRaw);
+
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_INIT,
+		"OnPrepareHardware - Entry");
 
     //EventRegisterMicrosoft_WindowsPhone_TouchMiniDriver();
 
@@ -547,6 +588,12 @@ OnPrepareHardware(
 
 exit:
 
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_INIT,
+		"OnPrepareHardware - Exit - 0x%08lX",
+		status);
+
     return status;
 }
 
@@ -579,6 +626,11 @@ OnReleaseHardware(
     PDEVICE_EXTENSION devContext;
 
     UNREFERENCED_PARAMETER(FxResourcesTranslated);
+
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_INIT,
+		"OnReleaseHardware - Entry");
 
     devContext = GetDeviceContext(FxDevice);
 
@@ -647,6 +699,12 @@ OnReleaseHardware(
     }
 
     SpbTargetDeinitialize(FxDevice, &GetDeviceContext(FxDevice)->I2CContext);
+
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_INIT,
+		"OnReleaseHardware - Exit - 0x%08lX",
+		status);
 
     return status;
 }

@@ -40,6 +40,11 @@ TchPowerSettingCallback(
     FTS_CONTROLLER_CONTEXT* ControllerContext = NULL;
     SPB_CONTEXT* SpbContext = NULL;
 
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_POWER,
+		"TchPowerSettingCallback - Entry");
+
     if (Context == NULL)
     {
         Trace(
@@ -265,7 +270,14 @@ TchPowerSettingCallback(
         }
     }
 
-    exit:
+exit:
+
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_POWER,
+		"TchPowerSettingCallback - Exit - 0x%08lX",
+        status);
+
     return status;
 }
 
@@ -294,6 +306,11 @@ Return Value:
 {    
     FTS_CONTROLLER_CONTEXT* controller;
     NTSTATUS status;
+
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_POWER,
+		"TchWakeDevice - Entry");
 
     controller = (FTS_CONTROLLER_CONTEXT*) ControllerContext;
 
@@ -326,6 +343,11 @@ Return Value:
 
 exit:
 
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_POWER,
+		"TchWakeDevice - Exit");
+
     return STATUS_SUCCESS;
 }
 
@@ -355,6 +377,11 @@ Return Value:
 {
     FTS_CONTROLLER_CONTEXT* controller;
     NTSTATUS status;
+
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_POWER,
+		"TchStandbyDevice - Entry");
 
     controller = (FTS_CONTROLLER_CONTEXT*) ControllerContext;
 
@@ -396,6 +423,11 @@ Return Value:
 
 
     WdfWaitLockRelease(controller->ControllerLock);
+
+	Trace(
+		TRACE_LEVEL_INFORMATION,
+		TRACE_POWER,
+        "TchStandbyDevice - Exit");
 
     return STATUS_SUCCESS;
 }
