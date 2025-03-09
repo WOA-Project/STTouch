@@ -521,20 +521,20 @@ TchContinuousObjectInterruptServicingEvtTimerFunc(
 	NTSTATUS status = STATUS_SUCCESS;
 
 	Trace(
-            TRACE_LEVEL_ERROR,
+		TRACE_LEVEL_ERROR,
 		TRACE_REPORTING,
 		"TchContinuousObjectInterruptServicingEvtTimerFunc ENTRY");
 
-      if (cachedReportContext == NULL)
-      {
+	if (cachedReportContext == NULL)
+	{
 		Trace(
 			TRACE_LEVEL_ERROR,
 			TRACE_REPORTING,
 			"Error while reporting objects - cachedReportContext is NULL");
 
-            WdfTimerStop(Timer, FALSE);
+		WdfTimerStop(Timer, FALSE);
 		goto exit;
-      }
+	}
 
 	status = ReportObjectsInternal(
 		cachedReportContext,
@@ -548,14 +548,14 @@ TchContinuousObjectInterruptServicingEvtTimerFunc(
 			"Error while reporting objects - 0x%08lX",
 			status);
 
-            WdfTimerStop(Timer, FALSE);
-            status = STATUS_SUCCESS;
+		WdfTimerStop(Timer, FALSE);
+		status = STATUS_SUCCESS;
 		goto exit;
 	}
 
 exit:
 	Trace(
-            TRACE_LEVEL_ERROR,
+		TRACE_LEVEL_ERROR,
 		TRACE_REPORTING,
 		"TchContinuousObjectInterruptServicingEvtTimerFunc EXIT - 0x%08lX",
 		status);
@@ -574,18 +574,18 @@ ReportConfigureContinuousSimulationTimer(
 	WDF_OBJECT_ATTRIBUTES  timerAttributes;
 
 	WDF_TIMER_CONFIG_INIT(
-      	&timerConfig,
-      	TchContinuousObjectInterruptServicingEvtTimerFunc);
+		&timerConfig,
+		TchContinuousObjectInterruptServicingEvtTimerFunc);
 
-      timerConfig.Period = 50;
+	timerConfig.Period = 50;
 
-      WDF_OBJECT_ATTRIBUTES_INIT(&timerAttributes);
-      timerAttributes.ParentObject = DeviceHandle;
+	WDF_OBJECT_ATTRIBUTES_INIT(&timerAttributes);
+	timerAttributes.ParentObject = DeviceHandle;
 
 	status = WdfTimerCreate(
-      	&timerConfig,
-      	&timerAttributes,
-      	&timerHandle);
+		&timerConfig,
+		&timerAttributes,
+		&timerHandle);
 
 	if (!NT_SUCCESS(status))
 	{
@@ -608,18 +608,18 @@ ReportObjectsContinuous(
 	IN DETECTED_OBJECTS data
 )
 {
-      NTSTATUS status = STATUS_SUCCESS;
+	NTSTATUS status = STATUS_SUCCESS;
 
 	Trace(
-            TRACE_LEVEL_ERROR,
+		TRACE_LEVEL_ERROR,
 		TRACE_REPORTING,
 		"ReportObjectsContinuous ENTRY");
 
-      WdfTimerStop(timerHandle, TRUE);
+	WdfTimerStop(timerHandle, TRUE);
 
-      cachedReportContext = ReportContext;
+	cachedReportContext = ReportContext;
 
-      RtlCopyMemory(&objectData, &data, sizeof(objectData));
+	RtlCopyMemory(&objectData, &data, sizeof(objectData));
 
 	status = ReportObjectsInternal(
 		ReportContext,
@@ -638,9 +638,9 @@ ReportObjectsContinuous(
 
 	WdfTimerStart(timerHandle, WDF_REL_TIMEOUT_IN_MS(50));
 
-exit:	
-      Trace(
-            TRACE_LEVEL_ERROR,
+exit:
+	Trace(
+		TRACE_LEVEL_ERROR,
 		TRACE_REPORTING,
 		"ReportObjectsContinuous EXIT - 0x%08lX",
 		status);
@@ -655,15 +655,15 @@ ReportObjects(
 )
 {
 	if (ReportContext->Props.TouchHardwareLacksContinuousReporting)
-      {
-            return ReportObjectsContinuous(
-		      ReportContext,
-		      data);
-      }
-      else
-      {
-            return ReportObjectsInternal(
-		      ReportContext,
-		      data);
-      }
+	{
+		return ReportObjectsContinuous(
+			ReportContext,
+			data);
+	}
+	else
+	{
+		return ReportObjectsInternal(
+			ReportContext,
+			data);
+	}
 }

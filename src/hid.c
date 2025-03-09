@@ -90,31 +90,31 @@ TchSendReport(
 	{
 	case REPORTID_STYLUS:
 	{
-	Trace(
-		TRACE_LEVEL_INFORMATION,
-		TRACE_HID,
-		"HID pen: "
-		"Tip Switch = %d, "
-		"Barrel Switch = %d, "
-		"Invert = %d, "
-		"Eraser = %d, "
-		"In Range = %d, "
-		"X = %d, "
-		"Y = %d, "
-		"Tip Pressure = %d, "
-		"X Tilt = %d, "
-		"Y Tilt = %d",
-		hidReportFromDriver->PenReport.TipSwitch,
-		hidReportFromDriver->PenReport.BarrelSwitch,
-		hidReportFromDriver->PenReport.Invert,
-		hidReportFromDriver->PenReport.Eraser,
-		hidReportFromDriver->PenReport.InRange,
-		hidReportFromDriver->PenReport.X,
-		hidReportFromDriver->PenReport.Y,
-		hidReportFromDriver->PenReport.TipPressure,
-		hidReportFromDriver->PenReport.XTilt,
-		hidReportFromDriver->PenReport.YTilt);
-	break;
+		Trace(
+			TRACE_LEVEL_INFORMATION,
+			TRACE_HID,
+			"HID pen: "
+			"Tip Switch = %d, "
+			"Barrel Switch = %d, "
+			"Invert = %d, "
+			"Eraser = %d, "
+			"In Range = %d, "
+			"X = %d, "
+			"Y = %d, "
+			"Tip Pressure = %d, "
+			"X Tilt = %d, "
+			"Y Tilt = %d",
+			hidReportFromDriver->PenReport.TipSwitch,
+			hidReportFromDriver->PenReport.BarrelSwitch,
+			hidReportFromDriver->PenReport.Invert,
+			hidReportFromDriver->PenReport.Eraser,
+			hidReportFromDriver->PenReport.InRange,
+			hidReportFromDriver->PenReport.X,
+			hidReportFromDriver->PenReport.Y,
+			hidReportFromDriver->PenReport.TipPressure,
+			hidReportFromDriver->PenReport.XTilt,
+			hidReportFromDriver->PenReport.YTilt);
+		break;
 	}
 	case REPORTID_FINGER:
 	{
@@ -239,7 +239,7 @@ NTSTATUS
 TchReadReport(
 	IN WDFDEVICE Device,
 	IN WDFREQUEST Request,
-	OUT BOOLEAN *Pending
+	OUT BOOLEAN* Pending
 )
 /*++
 
@@ -401,7 +401,7 @@ Return Value:
 		break;
 	}
 
-	lenId = strId ? (wcslen(strId)*sizeof(WCHAR) + sizeof(UNICODE_NULL)) : 0;
+	lenId = strId ? (wcslen(strId) * sizeof(WCHAR) + sizeof(UNICODE_NULL)) : 0;
 	if (strId == NULL)
 	{
 		status = STATUS_INVALID_PARAMETER;
@@ -602,7 +602,7 @@ Return Value:
 	status = WdfMemoryCopyFromBuffer(
 		memory,
 		0,
-		(PUCHAR) &gHidDescriptor,
+		(PUCHAR)&gHidDescriptor,
 		sizeof(gHidDescriptor));
 
 	if (!NT_SUCCESS(status))
@@ -760,7 +760,7 @@ Return Value:
 	//
 	status = WdfRequestRetrieveOutputBuffer(
 		Request,
-		sizeof (HID_DEVICE_ATTRIBUTES),
+		sizeof(HID_DEVICE_ATTRIBUTES),
 		&deviceAttributes,
 		NULL);
 
@@ -774,7 +774,7 @@ Return Value:
 		goto exit;
 	}
 
-	deviceAttributes->Size = sizeof (HID_DEVICE_ATTRIBUTES);
+	deviceAttributes->Size = sizeof(HID_DEVICE_ATTRIBUTES);
 	deviceAttributes->VendorID = gOEMVendorID;
 	deviceAttributes->ProductID = gOEMProductID;
 	deviceAttributes->VersionNumber = gOEMVersionID;
@@ -782,7 +782,7 @@ Return Value:
 	//
 	// Report how many bytes were copied
 	//
-	WdfRequestSetInformation(Request, sizeof (HID_DEVICE_ATTRIBUTES));
+	WdfRequestSetInformation(Request, sizeof(HID_DEVICE_ATTRIBUTES));
 
 exit:
 
@@ -845,7 +845,7 @@ Return Value:
 	}
 
 	featurePacket =
-		(PHID_XFER_PACKET) WdfRequestWdmGetIrp(Request)->UserBuffer;
+		(PHID_XFER_PACKET)WdfRequestWdmGetIrp(Request)->UserBuffer;
 
 	if (featurePacket == NULL)
 	{
@@ -867,7 +867,7 @@ Return Value:
 			"%!FUNC! Report REPORTID_REPORTMODE is requested"
 		);
 
-		PPTP_DEVICE_INPUT_MODE_REPORT DeviceInputMode = (PPTP_DEVICE_INPUT_MODE_REPORT) featurePacket->reportBuffer;
+		PPTP_DEVICE_INPUT_MODE_REPORT DeviceInputMode = (PPTP_DEVICE_INPUT_MODE_REPORT)featurePacket->reportBuffer;
 
 		Trace(
 			TRACE_LEVEL_INFORMATION,
@@ -1003,7 +1003,7 @@ Return Value:
 	}
 
 	featurePacket =
-		(PHID_XFER_PACKET) WdfRequestWdmGetIrp(Request)->UserBuffer;
+		(PHID_XFER_PACKET)WdfRequestWdmGetIrp(Request)->UserBuffer;
 
 	if (featurePacket == NULL)
 	{
@@ -1037,7 +1037,7 @@ Return Value:
 			goto exit;
 		}
 
-		PPTP_DEVICE_CAPS_FEATURE_REPORT capsReport = (PPTP_DEVICE_CAPS_FEATURE_REPORT) featurePacket->reportBuffer;
+		PPTP_DEVICE_CAPS_FEATURE_REPORT capsReport = (PPTP_DEVICE_CAPS_FEATURE_REPORT)featurePacket->reportBuffer;
 
 		capsReport->MaximumContactPoints = PTP_MAX_CONTACT_POINTS;
 		capsReport->ReportID = REPORTID_DEVICE_CAPS;
@@ -1082,7 +1082,7 @@ Return Value:
 			goto exit;
 		}
 
-		PPTP_DEVICE_HQA_CERTIFICATION_REPORT certReport = (PPTP_DEVICE_HQA_CERTIFICATION_REPORT) featurePacket->reportBuffer;
+		PPTP_DEVICE_HQA_CERTIFICATION_REPORT certReport = (PPTP_DEVICE_HQA_CERTIFICATION_REPORT)featurePacket->reportBuffer;
 
 		*certReport->CertificationBlob = DEFAULT_PTP_HQA_BLOB;
 		certReport->ReportID = REPORTID_PTPHQA;

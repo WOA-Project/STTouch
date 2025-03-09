@@ -1,7 +1,7 @@
 /*++
-    Copyright (c) Microsoft Corporation. All Rights Reserved.
-    Copyright (c) Bingxing Wang. All Rights Reserved.
-    Copyright (c) LumiaWoA authors. All Rights Reserved.
+	Copyright (c) Microsoft Corporation. All Rights Reserved.
+	Copyright (c) Bingxing Wang. All Rights Reserved.
+	Copyright (c) LumiaWoA authors. All Rights Reserved.
 
 	Module Name:
 
@@ -221,7 +221,7 @@ Return Value:
 {
 	FTS_CONTROLLER_CONTEXT* context;
 	NTSTATUS status;
-	
+
 	Trace(
 		TRACE_LEVEL_INFORMATION,
 		TRACE_INIT,

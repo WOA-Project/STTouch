@@ -4,9 +4,9 @@
 #include <Cross Platform Shim\bitops.h>
 #include <Cross Platform Shim\hweight.h>
 
-void bitmap_set(unsigned long *map, unsigned int start, int len)
+void bitmap_set(unsigned long* map, unsigned int start, int len)
 {
-	unsigned long *p = map + BIT_WORD(start);
+	unsigned long* p = map + BIT_WORD(start);
 	const unsigned int size = start + len;
 	int bits_to_set = BITS_PER_LONG - (start % BITS_PER_LONG);
 	unsigned long mask_to_set = BITMAP_FIRST_WORD_MASK(start);
@@ -27,7 +27,7 @@ void bitmap_set(unsigned long *map, unsigned int start, int len)
 	}
 }
 
-int bitmap_weight(const unsigned long *bitmap, unsigned int bits)
+int bitmap_weight(const unsigned long* bitmap, unsigned int bits)
 {
 	unsigned int k, lim = bits / BITS_PER_LONG;
 	int w = 0;
@@ -72,7 +72,7 @@ static inline unsigned long __ffs(unsigned long word)
 	return num;
 }
 
-unsigned long find_first_bit(const unsigned long *addr, unsigned long size)
+unsigned long find_first_bit(const unsigned long* addr, unsigned long size)
 {
 	unsigned long idx;
 
@@ -91,8 +91,8 @@ unsigned long find_first_bit(const unsigned long *addr, unsigned long size)
 *    searching it for one bits.
 *  - The optional "addr2", which is anded with "addr1" if present.
 */
-static inline unsigned long _find_next_bit(const unsigned long *addr1,
-	const unsigned long *addr2, unsigned long nbits,
+static inline unsigned long _find_next_bit(const unsigned long* addr1,
+	const unsigned long* addr2, unsigned long nbits,
 	unsigned long start, unsigned long invert)
 {
 	unsigned long tmp;
@@ -122,7 +122,7 @@ static inline unsigned long _find_next_bit(const unsigned long *addr1,
 	return min(start + __ffs(tmp), nbits);
 }
 
-unsigned long find_next_bit(const unsigned long *addr, unsigned long size,
+unsigned long find_next_bit(const unsigned long* addr, unsigned long size,
 	unsigned long offset)
 {
 	return _find_next_bit(addr, NULL, size, offset, 0UL);

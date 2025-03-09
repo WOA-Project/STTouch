@@ -37,8 +37,8 @@
 	@return NTSTATUS
 */
 NTSTATUS FtsGetAllEvents(
-	SPB_CONTEXT* SpbContext, 
-	BYTE** DataBuffer, 
+	SPB_CONTEXT* SpbContext,
+	BYTE** DataBuffer,
 	DWORD* DataBufferLength)
 {
 	NTSTATUS status;
@@ -48,7 +48,7 @@ NTSTATUS FtsGetAllEvents(
 		TRACE_LEVEL_ERROR,
 		TRACE_REPORTING,
 		"FtsGetAllEvents - Entry");
-	
+
 	if (DataBuffer == NULL || DataBufferLength == NULL)
 	{
 		status = STATUS_INVALID_PARAMETER;
