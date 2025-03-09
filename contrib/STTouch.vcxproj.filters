@@ -90,6 +90,12 @@
     <ClCompile Include="..\src\report.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\fts\ftsevents.c">
+      <Filter>Source Files\fts</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\fts\ftspointer.c">
+      <Filter>Source Files\fts</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="..\src\Resource.rc">
@@ -164,6 +170,15 @@
     </ClInclude>
     <ClInclude Include="..\include\report.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\fts\ftsevents.h">
+      <Filter>Header Files\fts</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\fts\ftspointer.h">
+      <Filter>Header Files\fts</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\fts\ftsregs.h">
+      <Filter>Header Files\fts</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
